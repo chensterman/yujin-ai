@@ -1,0 +1,31 @@
+{
+    "browser": {
+        "headless": false,
+        "slow_mo": 50,
+        "viewport_size": {
+            "width": 1280,
+            "height": 800
+        },
+        "user_agent": null
+    },
+    "highlighting": {
+        "enabled": true,
+        "default_color": "rgba(255, 105, 180, 0.5)",
+        "success_color": "rgba(0, 255, 0, 0.5)",
+        "error_color": "rgba(255, 0, 0, 0.5)",
+        "duration": 2000,
+        "pulse_effect": true
+    },
+    "tinder": {
+        "base_url": "https://tinder.com",
+        "swipe_delay": 1000,
+        "message_check_interval": 60000,
+        "auto_message": true,
+        "max_swipes_per_session": 100
+    },
+    "storage": {
+        "cookies_path": "data/cookies.json",
+        "screenshots_dir": "data/screenshots",
+        "logs_dir": "logs"
+    }
+}
