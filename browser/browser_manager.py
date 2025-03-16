@@ -132,6 +132,7 @@ class BrowserManager:
             '--no-default-browser-check',
             '--no-startup-window',
             '--window-position=0,0',
+            f'--window-size={self.viewport_size["width"]},{self.viewport_size["height"]}',
         ]
         
         # Context options
