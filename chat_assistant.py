@@ -80,9 +80,29 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
         print("No chat conversations found")
         return
 
-    for chat in chat_items:
+    for chat in chat_items[2:]:
         await highlighter.highlight_specific_element(chat)
-        await asyncio.sleep(1)
+        try:
+            await chat.click()
+            print("successfully clicked")
+            # Wait for 2 seconds after clicking to allow the chat to load
+            await controller.page.wait_for_timeout(2000)
+            conversation = await chat_extractor.extract_conversation()
+            print("conversation: ", conversation)
+
+        # # Click on the chat element to select it
+        # selector = 'div.contact[data-qa-role="contact"]'
+
+        # try:
+        #     await highlighter.highlight_and_click(
+        #         selector=selector,
+        #         color="rgba(0, 255, 0, 0.5)",  # Green highlight
+        #         pre_click_delay=2000,  # Wait 2 seconds before clicking
+        #         post_click_delay=2000   # Wait 2 seconds after clicking
+        #     )
+        #     await chat.click()
+        except Exception as e:
+            print(f"Failed to highlight and click chat: {str(e)}")
 
     # num_elements = await highlighter.find_and_highlight_interactive_elements(
     #     do_highlight=True,

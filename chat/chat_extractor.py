@@ -28,6 +28,40 @@ class ChatExtractor:
         self.highlighter = page_controller.highlighter
         self.logger = logging.getLogger("ChatExtractor")
 
+    async def extract_conversation(self):
+        """
+        Extract the conversation messages from the current chat.
+        Returns a list of message objects with sender and text content.
+        """
+        try:
+            # Wait for the conversation to load
+            await self.controller.page.wait_for_selector('.messages-list__conversation', timeout=5000)
+
+            # Extract all messages from the conversation
+            messages = []
+
+            # Get all message elements
+            message_elements = await self.controller.page.query_selector_all('.message')
+
+            for msg_element in message_elements:
+                # Determine if message is incoming or outgoing
+                is_outgoing = await msg_element.get_attribute('class') and 'message--out' in await msg_element.get_attribute('class')
+                sender = 'me' if is_outgoing else 'them'
+
+                # Extract message text
+                text_element = await msg_element.query_selector('.message-bubble__text')
+                if text_element:
+                    text = await text_element.inner_text()
+                    messages.append({
+                        'sender': sender,
+                        'text': text.strip()
+                    })
+
+            return messages
+        except Exception as e:
+            print(f"Error extracting conversation: {str(e)}")
+            return []
+
     async def get_chat_list(self) -> List[ElementHandle]:
         """
         Get list of available chat conversations.
@@ -54,7 +88,6 @@ class ChatExtractor:
             chat_items = []
             for i in range(count):
                 chat_items.append(await contacts_locator.nth(i).element_handle())
-
             # # Highlight all chat items if available
             # if self.highlighter and chat_items:
             #     for i, chat in enumerate(chat_items):
