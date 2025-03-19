@@ -63,7 +63,6 @@ async def browser_init():
 
 async def automate_chats(controller: PageController, highlighter: ElementHighlighter):
     try:
-        # Try to navigate with a reasonable timeout
         await asyncio.wait_for(controller.navigate("https://bumble.com/app/connections"), timeout=5)
         print("Successfully navigated to Bumble connections")
     except asyncio.TimeoutError:
@@ -74,14 +73,9 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
     chat_responder = ChatResponder(controller)
     ai_assistant = AIAssistant()
 
-    # # Navigate to Bumble chats
-    success = await chat_extractor.navigate_to_chats()
-    if not success:
-        print("Failed to navigate to Bumble chats")
-        return
-
     # # Get list of available chats
     chat_items = await chat_extractor.get_chat_list()
+    print(len(chat_items))
     if not chat_items:
         print("No chat conversations found")
         return

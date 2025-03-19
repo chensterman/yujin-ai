@@ -28,20 +28,6 @@ class ChatExtractor:
         self.highlighter = page_controller.highlighter
         self.logger = logging.getLogger("ChatExtractor")
 
-    async def navigate_to_chats(self) -> bool:
-        """Navigate to the Bumble chat section."""
-        try:
-            # Navigate to the connections/chat page
-            await self.controller.navigate("https://bumble.com/app/connections")
-            self.logger.info("Navigated to Bumble connections page")
-
-            # Wait for the chat interface to load
-            await self.page.wait_for_load_state("networkidle")
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to navigate to chats: {str(e)}")
-            return False
-
     async def get_chat_list(self) -> List[ElementHandle]:
         """
         Get list of available chat conversations.
@@ -51,19 +37,31 @@ class ChatExtractor:
         """
         try:
             # Wait for chat list to load
-            await self.page.wait_for_selector("div[data-qa-role='conversation-item']",
+            await self.page.wait_for_selector("div[data-qa-role='conversations-tab-section-content']",
                                               timeout=10000)
 
-            # Get all chat items
-            chat_items = await self.page.query_selector_all("div[data-qa-role='conversation-item']")
+            # Get all chat items using locator API
+            contacts_locator = self.page.locator(
+                "div[data-qa-role='conversations-tab-section-content'] div.scroll__inner div.contact")
 
-            # Highlight all chat items if available
-            if self.highlighter and chat_items:
-                for i, chat in enumerate(chat_items):
-                    await self.highlighter.highlight(chat,
-                                                     color="rgba(255, 165, 0, 0.3)",
-                                                     duration=500)
-                    await asyncio.sleep(0.1)  # Small delay between highlights
+            # Wait for contacts to be visible
+            await contacts_locator.first.wait_for(state="visible", timeout=5000)
+
+            # Get count of contacts
+            count = await contacts_locator.count()
+
+            # Convert locators to element handles for compatibility with existing code
+            chat_items = []
+            for i in range(count):
+                chat_items.append(await contacts_locator.nth(i).element_handle())
+
+            # # Highlight all chat items if available
+            # if self.highlighter and chat_items:
+            #     for i, chat in enumerate(chat_items):
+            #         await self.highlighter.highlight(chat,
+            #                                          color="rgba(255, 165, 0, 0.3)",
+            #                                          duration=500)
+            #         await asyncio.sleep(0.1)  # Small delay between highlights
 
             self.logger.info(f"Found {len(chat_items)} chat conversations")
             return chat_items
