@@ -140,36 +140,38 @@ class ChatExtractor:
             List of message dictionaries with 'sender' and 'text' keys
         """
         try:
-            # Wait for messages to load
-            await self.page.wait_for_selector("div[data-qa-role='message']",
-                                              timeout=5000)
+            # # Wait for messages to load
+            # await self.page.wait_for_selector("div[data-qa-role='messages-list__conversation']",
+            #                                   timeout=5000)
 
             # Get all message elements
-            message_elements = await self.page.query_selector_all("div[data-qa-role='message']")
-
+            message_elements = await self.page.locator("div.message").all()
+            print("got message elements: ", message_elements)
             conversation = []
 
             for msg_element in message_elements:
                 # Determine if message is from self or other person
                 is_self = await msg_element.evaluate("""
-                    element => element.classList.contains('message--outgoing')
+                    element => element.classList.contains('message--out')
                 """)
-
+                print("is_self", is_self)
                 # Get message text
-                text_element = await msg_element.query_selector("div[data-qa-role='message-text']")
-                if text_element:
-                    text = await text_element.text_content()
+                text = await msg_element.text_content()
+                print("text", text)
+                # if text_element:
+                #     print("got text element")
+                #     text = await text_element.text_content()
 
-                    # Add to conversation
-                    conversation.append({
-                        'sender': 'user' if is_self else 'match',
-                        'text': text.strip()
-                    })
+                #     # Add to conversation
+                #     conversation.append({
+                #         'sender': 'user' if is_self else 'match',
+                #         'text': text.strip()
+                #     })
 
-                    # Highlight each message as we process it
-                    if self.highlighter:
-                        color = "rgba(173, 216, 230, 0.5)" if is_self else "rgba(255, 192, 203, 0.5)"
-                        await self.highlighter.highlight(msg_element, color=color, duration=300)
+                #     # Highlight each message as we process it
+                #     if self.highlighter:
+                #         color = "rgba(173, 216, 230, 0.5)" if is_self else "rgba(255, 192, 203, 0.5)"
+                #         await self.highlighter.highlight(msg_element, color=color, duration=300)
 
             self.logger.info(
                 f"Extracted {len(conversation)} messages from conversation")
