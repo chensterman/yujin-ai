@@ -146,32 +146,27 @@ class ChatExtractor:
 
             # Get all message elements
             message_elements = await self.page.locator("div.message").all()
-            print("got message elements: ", message_elements)
             conversation = []
-
             for msg_element in message_elements:
                 # Determine if message is from self or other person
                 is_self = await msg_element.evaluate("""
                     element => element.classList.contains('message--out')
                 """)
-                print("is_self", is_self)
-                # Get message text
                 text = await msg_element.text_content()
-                print("text", text)
-                # if text_element:
-                #     print("got text element")
-                #     text = await text_element.text_content()
-
-                #     # Add to conversation
-                #     conversation.append({
-                #         'sender': 'user' if is_self else 'match',
-                #         'text': text.strip()
-                #     })
-
-                #     # Highlight each message as we process it
-                #     if self.highlighter:
-                #         color = "rgba(173, 216, 230, 0.5)" if is_self else "rgba(255, 192, 203, 0.5)"
-                #         await self.highlighter.highlight(msg_element, color=color, duration=300)
+                # Clean up the text content
+                text = text.strip()
+                # Skip empty messages
+                if text:
+                    # Determine sender based on message direction
+                    sender = "self" if is_self else "other"
+                    # Add message to conversation
+                    conversation.append({
+                        "sender": sender,
+                        "text": text
+                    })
+                    # Log the extracted message
+                    self.logger.debug(
+                        f"Extracted message - Sender: {sender}, Text: {text}")
 
             self.logger.info(
                 f"Extracted {len(conversation)} messages from conversation")
