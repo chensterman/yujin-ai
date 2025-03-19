@@ -80,6 +80,10 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
         print("No chat conversations found")
         return
 
+    for chat in chat_items:
+        await highlighter.highlight_specific_element(chat)
+        await asyncio.sleep(1)
+
     # num_elements = await highlighter.find_and_highlight_interactive_elements(
     #     do_highlight=True,
     #     viewport_expansion=500  # Expand viewport by 500px in all directions
