@@ -58,7 +58,7 @@ async def swipe():
 
         # Navigate to tinder
         logger.info("Navigating to Tinder")
-        await controller.navigate("https://www.tinder.com")
+        await controller.navigate("https://bumble.com/app/connections")
 
         # Wait for the page to load
         await page.wait_for_timeout(2000)
