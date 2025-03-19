@@ -1,168 +1,467 @@
 /**
- * Element Highlighter for Browser Automation
+ * Advanced Element Highlighter for Browser Automation
  * 
- * This script provides functionality to highlight elements in the browser
- * with colored bounding boxes in real-time during automation.
+ * This script provides comprehensive functionality to detect and highlight 
+ * interactive elements in the browser with colored bounding boxes.
  */
 
-window.elementHighlighter = {
-    highlights: [],
-    
-    highlight: function(selector, options = {}) {
-        const element = document.querySelector(selector);
-        if (!element) return null;
-        
-        const defaults = {
-            color: 'rgba(255, 105, 180, 0.5)',
-            borderWidth: 3,
-            fillOpacity: 0.2,
-            duration: 1000,
-            pulseEffect: true,
-            zIndex: 10000,
-            id: 'highlight-' + Math.random().toString(36).substr(2, 9)
-        };
-        
-        const config = {...defaults, ...options};
-        
-        // Get element position
-        const rect = element.getBoundingClientRect();
-        
-        // Create highlight overlay
-        const highlight = document.createElement('div');
-        highlight.id = config.id;
-        highlight.style.position = 'fixed';
-        highlight.style.left = rect.left + 'px';
-        highlight.style.top = rect.top + 'px';
-        highlight.style.width = rect.width + 'px';
-        highlight.style.height = rect.height + 'px';
-        highlight.style.border = `${config.borderWidth}px solid ${config.color}`;
-        highlight.style.backgroundColor = config.color.replace(')', ', ' + config.fillOpacity + ')').replace('rgb', 'rgba');
-        highlight.style.zIndex = config.zIndex;
-        highlight.style.pointerEvents = 'none';
-        highlight.style.boxSizing = 'border-box';
-        
-        if (config.pulseEffect) {
-            highlight.style.animation = 'pulse-highlight 1.5s infinite';
-            
-            // Add the animation if it doesn't exist yet
-            if (!document.getElementById('highlight-keyframes')) {
-                const style = document.createElement('style');
-                style.id = 'highlight-keyframes';
-                style.innerHTML = `
-                    @keyframes pulse-highlight {
-                        0% { opacity: 1; }
-                        50% { opacity: 0.6; }
-                        100% { opacity: 1; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        }
-        
-        document.body.appendChild(highlight);
-        
-        // Store the highlight
-        this.highlights.push({
-            id: config.id,
-            element: highlight,
-            selector: selector,
-            timer: null
-        });
-        
-        // Set up removal if duration is specified
-        if (config.duration > 0) {
-            const timer = setTimeout(() => {
-                this.removeHighlight(config.id);
-            }, config.duration);
-            
-            // Store the timer
-            const highlightObj = this.highlights.find(h => h.id === config.id);
-            if (highlightObj) {
-                highlightObj.timer = timer;
-            }
-        }
-        
-        return config.id;
-    },
-    
-    removeHighlight: function(id) {
-        const index = this.highlights.findIndex(h => h.id === id);
-        if (index !== -1) {
-            const highlight = this.highlights[index];
-            
-            // Clear any pending timers
-            if (highlight.timer) {
-                clearTimeout(highlight.timer);
-            }
-            
-            // Remove the element
-            if (highlight.element && highlight.element.parentNode) {
-                highlight.element.parentNode.removeChild(highlight.element);
-            }
-            
-            // Remove from our array
-            this.highlights.splice(index, 1);
-            return true;
-        }
-        return false;
-    },
-    
-    removeAllHighlights: function() {
-        // Make a copy since we'll be modifying the array
-        const highlightIds = this.highlights.map(h => h.id);
-        
-        // Remove each highlight
-        highlightIds.forEach(id => {
-            this.removeHighlight(id);
-        });
-        
-        return highlightIds.length;
-    },
-    
-    updateHighlightPosition: function(id) {
-        const highlight = this.highlights.find(h => h.id === id);
-        if (!highlight) return false;
-        
-        const element = document.querySelector(highlight.selector);
-        if (!element) return false;
-        
-        const rect = element.getBoundingClientRect();
-        
-        highlight.element.style.left = rect.left + 'px';
-        highlight.element.style.top = rect.top + 'px';
-        highlight.element.style.width = rect.width + 'px';
-        highlight.element.style.height = rect.height + 'px';
-        
-        return true;
-    },
-    
-    updateAllHighlightPositions: function() {
-        this.highlights.forEach(highlight => {
-            this.updateHighlightPosition(highlight.id);
-        });
-        
-        return this.highlights.length;
+window.elementHighlighter = (function() {
+  // Private variables
+  const HIGHLIGHT_CONTAINER_ID = "playwright-highlight-container";
+  let highlightIndex = 0;
+  const DOM_HASH_MAP = {};
+  let ID = { current: 0 };
+  
+  // Color palette for highlights
+  const COLORS = [
+    "#FF0000", "#00FF00", "#0000FF", "#FFA500", "#800080", 
+    "#008080", "#FF69B4", "#4B0082", "#FF4500", "#2E8B57", 
+    "#DC143C", "#4682B4"
+  ];
+  
+  // DOM caching for performance
+  const DOM_CACHE = {
+    boundingRects: new WeakMap(),
+    computedStyles: new WeakMap(),
+    clearCache: function() {
+      this.boundingRects = new WeakMap();
+      this.computedStyles = new WeakMap();
     }
-};
-
-// Set up a mutation observer to update highlight positions when DOM changes
-const setupMutationObserver = function() {
-    const observer = new MutationObserver(() => {
-        window.elementHighlighter.updateAllHighlightPositions();
-    });
+  };
+  
+  // Helper functions for DOM operations with caching
+  function getCachedBoundingRect(element) {
+    if (!element) return null;
     
-    // Start observing the document with the configured parameters
-    observer.observe(document.body, { 
-        childList: true, 
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class']
-    });
-};
-
-// Initialize the mutation observer when the script loads
-if (document.body) {
-    setupMutationObserver();
-} else {
-    document.addEventListener('DOMContentLoaded', setupMutationObserver);
-}
+    if (DOM_CACHE.boundingRects.has(element)) {
+      return DOM_CACHE.boundingRects.get(element);
+    }
+    
+    const rect = element.getBoundingClientRect();
+    if (rect) {
+      DOM_CACHE.boundingRects.set(element, rect);
+    }
+    return rect;
+  }
+  
+  function getCachedComputedStyle(element) {
+    if (!element) return null;
+    
+    if (DOM_CACHE.computedStyles.has(element)) {
+      return DOM_CACHE.computedStyles.get(element);
+    }
+    
+    const style = window.getComputedStyle(element);
+    if (style) {
+      DOM_CACHE.computedStyles.set(element, style);
+    }
+    return style;
+  }
+  
+  // XPath helper for element identification
+  function getXPathTree(element, stopAtBoundary = true) {
+    const segments = [];
+    let currentElement = element;
+    
+    while (currentElement && currentElement.nodeType === Node.ELEMENT_NODE) {
+      // Stop if we hit a shadow root or iframe
+      if (
+        stopAtBoundary &&
+        (currentElement.parentNode instanceof ShadowRoot ||
+         currentElement.parentNode instanceof HTMLIFrameElement)
+      ) {
+        break;
+      }
+      
+      let index = 0;
+      let sibling = currentElement.previousSibling;
+      while (sibling) {
+        if (
+          sibling.nodeType === Node.ELEMENT_NODE &&
+          sibling.nodeName === currentElement.nodeName
+        ) {
+          index++;
+        }
+        sibling = sibling.previousSibling;
+      }
+      
+      const tagName = currentElement.nodeName.toLowerCase();
+      const xpathIndex = index > 0 ? `[${index + 1}]` : "";
+      segments.unshift(`${tagName}${xpathIndex}`);
+      
+      currentElement = currentElement.parentNode;
+    }
+    
+    return segments.join("/");
+  }
+  
+  // Core highlighting function
+  function highlightElement(element, index, parentIframe = null) {
+    if (!element) return index;
+    
+    try {
+      // Create or get highlight container
+      let container = document.getElementById(HIGHLIGHT_CONTAINER_ID);
+      if (!container) {
+        container = document.createElement("div");
+        container.id = HIGHLIGHT_CONTAINER_ID;
+        container.style.position = "fixed";
+        container.style.pointerEvents = "none";
+        container.style.top = "0";
+        container.style.left = "0";
+        container.style.width = "100%";
+        container.style.height = "100%";
+        container.style.zIndex = "2147483647";
+        document.body.appendChild(container);
+      }
+      
+      // Get element position
+      const rect = element.getBoundingClientRect();
+      if (!rect) return index;
+      
+      // Generate a color based on the index
+      const colorIndex = index % COLORS.length;
+      const baseColor = COLORS[colorIndex];
+      const backgroundColor = baseColor + "1A"; // 10% opacity version of the color
+      
+      // Create highlight overlay
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.border = `2px solid ${baseColor}`;
+      overlay.style.backgroundColor = backgroundColor;
+      overlay.style.pointerEvents = "none";
+      overlay.style.boxSizing = "border-box";
+      
+      // Get element position
+      let iframeOffset = { x: 0, y: 0 };
+      
+      // If element is in an iframe, calculate iframe offset
+      if (parentIframe) {
+        const iframeRect = parentIframe.getBoundingClientRect();
+        iframeOffset.x = iframeRect.left;
+        iframeOffset.y = iframeRect.top;
+      }
+      
+      // Calculate position
+      const top = rect.top + iframeOffset.y;
+      const left = rect.left + iframeOffset.x;
+      
+      overlay.style.top = `${top}px`;
+      overlay.style.left = `${left}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+      
+      // Create and position label
+      const label = document.createElement("div");
+      label.className = "playwright-highlight-label";
+      label.style.position = "fixed";
+      label.style.background = baseColor;
+      label.style.color = "white";
+      label.style.padding = "1px 4px";
+      label.style.borderRadius = "4px";
+      label.style.fontSize = `${Math.min(12, Math.max(8, rect.height / 2))}px`;
+      label.textContent = index;
+      
+      const labelWidth = 20;
+      const labelHeight = 16;
+      
+      let labelTop = top + 2;
+      let labelLeft = left + rect.width - labelWidth - 2;
+      
+      if (rect.width < labelWidth + 4 || rect.height < labelHeight + 4) {
+        labelTop = top - labelHeight - 2;
+        labelLeft = left + rect.width - labelWidth;
+      }
+      
+      label.style.top = `${labelTop}px`;
+      label.style.left = `${labelLeft}px`;
+      
+      // Add to container
+      container.appendChild(overlay);
+      container.appendChild(label);
+      
+      // Update positions on scroll
+      const updatePositions = () => {
+        const newRect = element.getBoundingClientRect();
+        let newIframeOffset = { x: 0, y: 0 };
+        
+        if (parentIframe) {
+          const iframeRect = parentIframe.getBoundingClientRect();
+          newIframeOffset.x = iframeRect.left;
+          newIframeOffset.y = iframeRect.top;
+        }
+        
+        const newTop = newRect.top + newIframeOffset.y;
+        const newLeft = newRect.left + newIframeOffset.x;
+        
+        overlay.style.top = `${newTop}px`;
+        overlay.style.left = `${newLeft}px`;
+        overlay.style.width = `${newRect.width}px`;
+        overlay.style.height = `${newRect.height}px`;
+        
+        let newLabelTop = newTop + 2;
+        let newLabelLeft = newLeft + newRect.width - labelWidth - 2;
+        
+        if (newRect.width < labelWidth + 4 || newRect.height < labelHeight + 4) {
+          newLabelTop = newTop - labelHeight - 2;
+          newLabelLeft = newLeft + newRect.width - labelWidth;
+        }
+        
+        label.style.top = `${newLabelTop}px`;
+        label.style.left = `${newLabelLeft}px`;
+      };
+      
+      window.addEventListener('scroll', updatePositions);
+      window.addEventListener('resize', updatePositions);
+      
+      return index + 1;
+    } catch (e) {
+      console.error("Error highlighting element:", e);
+      return index;
+    }
+  }
+  
+  // Element visibility check
+  function isElementVisible(element) {
+    const style = getCachedComputedStyle(element);
+    return (
+      element.offsetWidth > 0 &&
+      element.offsetHeight > 0 &&
+      style.visibility !== "hidden" &&
+      style.display !== "none"
+    );
+  }
+  
+  // Check if element is the topmost at its position
+  function isTopElement(element) {
+    const rect = getCachedBoundingRect(element);
+    
+    // If element is not in viewport, consider it top
+    const isInViewport = (
+      rect.left < window.innerWidth &&
+      rect.right > 0 &&
+      rect.top < window.innerHeight &&
+      rect.bottom > 0
+    );
+    
+    if (!isInViewport) {
+      return true;
+    }
+    
+    // For elements in viewport, check if they're topmost
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    try {
+      const topEl = document.elementFromPoint(centerX, centerY);
+      if (!topEl) return false;
+      
+      let current = topEl;
+      while (current && current !== document.documentElement) {
+        if (current === element) return true;
+        current = current.parentElement;
+      }
+      return false;
+    } catch (e) {
+      return true;
+    }
+  }
+  
+  // Interactive element detection
+  function isInteractiveElement(element) {
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+      return false;
+    }
+    
+    // Base interactive elements and roles
+    const interactiveElements = new Set([
+      "a", "button", "details", "embed", "input", "menu", "menuitem",
+      "object", "select", "textarea", "canvas", "summary", "dialog"
+    ]);
+    
+    const interactiveRoles = new Set([
+      'button', 'link', 'checkbox', 'radio', 'tab', 'menu', 'menuitem',
+      'slider', 'switch', 'textbox', 'combobox', 'listbox', 'option',
+      'searchbox', 'spinbutton', 'scrollbar', 'tooltip', 'treeitem'
+    ]);
+    
+    const tagName = element.tagName.toLowerCase();
+    const role = element.getAttribute("role");
+    const tabIndex = element.getAttribute("tabindex");
+    
+    // Basic role/attribute checks
+    if (
+      interactiveElements.has(tagName) ||
+      (role && interactiveRoles.has(role.toLowerCase())) ||
+      (tabIndex !== null && tabIndex !== "-1") ||
+      element.onclick ||
+      element.hasAttribute("onclick") ||
+      element.hasAttribute("ng-click") ||
+      element.hasAttribute("@click") ||
+      element.hasAttribute("v-on:click") ||
+      element.hasAttribute("aria-expanded") ||
+      element.hasAttribute("aria-pressed") ||
+      element.hasAttribute("aria-selected") ||
+      element.hasAttribute("aria-checked") ||
+      element.getAttribute("contenteditable") === "true" ||
+      element.draggable ||
+      element.getAttribute("draggable") === "true"
+    ) {
+      return true;
+    }
+    
+    // Class-based checks for common interactive patterns
+    if (element.classList) {
+      for (const cls of element.classList) {
+        const lowerCls = cls.toLowerCase();
+        if (
+          lowerCls.includes('button') ||
+          lowerCls.includes('btn') ||
+          lowerCls.includes('clickable') ||
+          lowerCls.includes('interactive') ||
+          lowerCls.includes('selectable') ||
+          lowerCls.includes('dropdown')
+        ) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+  
+  // Helper function to check if element is accepted for processing
+  function isElementAccepted(element) {
+    if (!element || !element.tagName) return false;
+    
+    // Always accept body and common container elements
+    const alwaysAccept = new Set([
+      "body", "div", "main", "article", "section", "nav", "header", "footer"
+    ]);
+    const tagName = element.tagName.toLowerCase();
+    
+    if (alwaysAccept.has(tagName)) return true;
+    
+    const leafElementDenyList = new Set([
+      "svg", "script", "style", "link", "meta", "noscript", "template"
+    ]);
+    
+    return !leafElementDenyList.has(tagName);
+  }
+  
+  // Main function to find and highlight all interactive elements
+  function findAndHighlightInteractiveElements(options = {}) {
+    // Default options
+    const defaults = {
+      doHighlightElements: true,
+      focusHighlightIndex: -1,
+      viewportExpansion: 0
+    };
+    
+    const config = {...defaults, ...options};
+    
+    // Reset for new highlighting session
+    highlightIndex = 0;
+    ID.current = 0;
+    DOM_CACHE.clearCache();
+    
+    // Remove any existing highlights
+    removeAllHighlights();
+    
+    // Start processing from the body
+    buildDomTree(document.body);
+    
+    return highlightIndex;
+  }
+  
+  // Process DOM tree to find interactive elements
+  function buildDomTree(node, parentIframe = null) {
+    if (!node || node.id === HIGHLIGHT_CONTAINER_ID) {
+      return null;
+    }
+    
+    // Early bailout for non-element nodes
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+    
+    // Quick checks for element nodes
+    if (!isElementAccepted(node)) {
+      return null;
+    }
+    
+    // Process element node
+    const nodeData = {
+      tagName: node.tagName.toLowerCase(),
+      xpath: getXPathTree(node, true),
+      children: []
+    };
+    
+    // Check visibility and interactivity
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      nodeData.isVisible = isElementVisible(node);
+      if (nodeData.isVisible) {
+        nodeData.isTopElement = isTopElement(node);
+        if (nodeData.isTopElement) {
+          nodeData.isInteractive = isInteractiveElement(node);
+          if (nodeData.isInteractive) {
+            nodeData.highlightIndex = highlightIndex++;
+            
+            // Highlight the element
+            highlightElement(node, nodeData.highlightIndex, parentIframe);
+          }
+        }
+      }
+    }
+    
+    // Process children, with special handling for iframes
+    if (node.tagName) {
+      const tagName = node.tagName.toLowerCase();
+      
+      // Handle iframes
+      if (tagName === "iframe") {
+        try {
+          const iframeDoc = node.contentDocument || node.contentWindow?.document;
+          if (iframeDoc && iframeDoc.body) {
+            buildDomTree(iframeDoc.body, node);
+          }
+        } catch (e) {
+          console.warn("Unable to access iframe:", e);
+        }
+      }
+      // Handle shadow DOM
+      else if (node.shadowRoot) {
+        for (const child of node.shadowRoot.childNodes) {
+          buildDomTree(child, parentIframe);
+        }
+      }
+      // Handle regular elements
+      else {
+        for (const child of node.childNodes) {
+          if (child.nodeType === Node.ELEMENT_NODE) {
+            buildDomTree(child, parentIframe);
+          }
+        }
+      }
+    }
+    
+    const id = `${ID.current++}`;
+    DOM_HASH_MAP[id] = nodeData;
+    return id;
+  }
+  
+  // Remove all highlights
+  function removeAllHighlights() {
+    const container = document.getElementById(HIGHLIGHT_CONTAINER_ID);
+    if (container) {
+      container.remove();
+    }
+  }
+  
+  // Public API
+  return {
+    findAndHighlightInteractiveElements: findAndHighlightInteractiveElements,
+    removeAllHighlights: removeAllHighlights,
+    isInteractiveElement: isInteractiveElement
+  };
+})();

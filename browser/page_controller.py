@@ -294,3 +294,157 @@ class PageController:
         except Exception as e:
             self.logger.error(f"Failed to take screenshot: {str(e)}")
             return False
+            
+    async def get_unique_selector(self, element: ElementHandle) -> Optional[str]:
+        """
+        Generate a unique CSS selector for an element.
+        
+        Args:
+            element: Playwright ElementHandle to generate selector for
+            
+        Returns:
+            A CSS selector string that uniquely identifies the element, or None if failed
+        """
+        try:
+            # Try to get a unique selector using Playwright's built-in functionality
+            return await element.evaluate("""element => {
+                // Helper function to escape CSS selector special characters
+                const escapeCSS = str => str.replace(/[\\:\\.\\/\\[\\]]/g, '\\\\$&');
+                
+                // Try to find a unique ID first
+                if (element.id) {
+                    return '#' + escapeCSS(element.id);
+                }
+                
+                // Try using a unique class combination
+                if (element.classList && element.classList.length > 0) {
+                    const classSelector = Array.from(element.classList).map(c => '.' + escapeCSS(c)).join('');
+                    // Test if this selector is unique
+                    if (document.querySelectorAll(classSelector).length === 1) {
+                        return classSelector;
+                    }
+                }
+                
+                // Try using tag name with attributes
+                const tagName = element.tagName.toLowerCase();
+                
+                // Check for common attributes that might be unique
+                for (const attr of ['data-testid', 'name', 'aria-label', 'role', 'type']) {
+                    if (element.hasAttribute(attr)) {
+                        const attrValue = element.getAttribute(attr);
+                        const selector = `${tagName}[${attr}="${attrValue}"]`;
+                        if (document.querySelectorAll(selector).length === 1) {
+                            return selector;
+                        }
+                    }
+                }
+                
+                // If no unique selector found yet, use nth-child with parent context
+                let current = element;
+                let selector = tagName;
+                let iterations = 0;
+                const maxIterations = 5; // Prevent infinite loops
+                
+                while (document.querySelectorAll(selector).length > 1 && iterations < maxIterations) {
+                    // Find the index of the current element among its siblings
+                    const parent = current.parentElement;
+                    if (!parent) break;
+                    
+                    const siblings = Array.from(parent.children);
+                    const index = siblings.indexOf(current) + 1;
+                    
+                    // Update the selector with nth-child
+                    selector = `${tagName}:nth-child(${index})`;
+                    
+                    // Add parent context if needed
+                    if (document.querySelectorAll(selector).length > 1) {
+                        const parentTag = parent.tagName.toLowerCase();
+                        selector = `${parentTag} > ${selector}`;
+                        current = parent;
+                    }
+                    
+                    iterations++;
+                }
+                
+                return selector;
+            }""")
+        except Exception as e:
+            self.logger.error(f"Failed to get unique selector: {str(e)}")
+            return None
+
+    async def get_unique_selector(self, element: ElementHandle) -> Optional[str]:
+        """
+        Generate a unique CSS selector for an element.
+        
+        Args:
+            element: Playwright ElementHandle to generate selector for
+            
+        Returns:
+            A CSS selector string that uniquely identifies the element, or None if failed
+        """
+        try:
+            # Try to get a unique selector using Playwright's built-in functionality
+            return await element.evaluate("""element => {
+                // Helper function to escape CSS selector special characters
+                const escapeCSS = str => str.replace(/[\\:\\.\\/\\[\\]]/g, '\\\\$&');
+                
+                // Try to find a unique ID first
+                if (element.id) {
+                    return '#' + escapeCSS(element.id);
+                }
+                
+                // Try using a unique class combination
+                if (element.classList && element.classList.length > 0) {
+                    const classSelector = Array.from(element.classList).map(c => '.' + escapeCSS(c)).join('');
+                    // Test if this selector is unique
+                    if (document.querySelectorAll(classSelector).length === 1) {
+                        return classSelector;
+                    }
+                }
+                
+                // Try using tag name with attributes
+                const tagName = element.tagName.toLowerCase();
+                
+                // Check for common attributes that might be unique
+                for (const attr of ['data-testid', 'name', 'aria-label', 'role', 'type']) {
+                    if (element.hasAttribute(attr)) {
+                        const attrValue = element.getAttribute(attr);
+                        const selector = `${tagName}[${attr}="${attrValue}"]`;
+                        if (document.querySelectorAll(selector).length === 1) {
+                            return selector;
+                        }
+                    }
+                }
+                
+                // If no unique selector found yet, use nth-child with parent context
+                let current = element;
+                let selector = tagName;
+                let iterations = 0;
+                const maxIterations = 5; // Prevent infinite loops
+                
+                while (document.querySelectorAll(selector).length > 1 && iterations < maxIterations) {
+                    // Find the index of the current element among its siblings
+                    const parent = current.parentElement;
+                    if (!parent) break;
+                    
+                    const siblings = Array.from(parent.children);
+                    const index = siblings.indexOf(current) + 1;
+                    
+                    // Update the selector with nth-child
+                    selector = `${tagName}:nth-child(${index})`;
+                    
+                    // Add parent context if needed
+                    if (document.querySelectorAll(selector).length > 1) {
+                        const parentTag = parent.tagName.toLowerCase();
+                        selector = `${parentTag} > ${selector}`;
+                        current = parent;
+                    }
+                    
+                    iterations++;
+                }
+                
+                return selector;
+            }""")
+        except Exception as e:
+            self.logger.error(f"Failed to get unique selector: {str(e)}")
+            return None
