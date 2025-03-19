@@ -43,7 +43,8 @@ class ElementHighlighter:
     async def find_and_highlight_interactive_elements(self, 
                                                      do_highlight: bool = True,
                                                      focus_highlight_index: int = -1,
-                                                     viewport_expansion: int = 0) -> int:
+                                                     viewport_expansion: int = 0,
+                                                     parent_selector: str = None) -> int:
         """
         Find and highlight all interactive elements on the page.
         
@@ -52,6 +53,8 @@ class ElementHighlighter:
             focus_highlight_index: If >= 0, only highlight the element with this index
             viewport_expansion: How much to expand the viewport when detecting elements
                                (0 = only elements in viewport, -1 = all elements)
+            parent_selector: CSS selector for a parent element to limit the search scope
+                            (if provided, only elements within this parent will be highlighted)
             
         Returns:
             Number of interactive elements found
@@ -59,7 +62,8 @@ class ElementHighlighter:
         options = {
             "doHighlightElements": do_highlight,
             "focusHighlightIndex": focus_highlight_index,
-            "viewportExpansion": viewport_expansion
+            "viewportExpansion": viewport_expansion,
+            "parentSelector": parent_selector
         }
         
         return await self.page.evaluate("""
@@ -97,14 +101,14 @@ class ElementHighlighter:
     async def highlight_element(self, 
                                element: Union[ElementHandle, str], 
                                color: str = "rgba(0, 255, 0, 0.5)", 
-                               duration: int = 1000) -> None:
+                               duration: int = 2000) -> None:
         """
-        Highlight a specific element with a colored box.
+        Highlight an element with a colored overlay.
         
         Args:
             element: ElementHandle or CSS selector for the element to highlight
-            color: CSS color for the highlight (rgba format recommended)
-            duration: Duration of the highlight in milliseconds (0 for permanent)
+            color: CSS color for the highlight
+            duration: Duration to show the highlight in ms (0 for indefinite)
         """
         # If element is a string (selector), get the element handle
         if isinstance(element, str):
@@ -121,22 +125,48 @@ class ElementHighlighter:
             
         # Create a highlight for the element
         await self.page.evaluate("""
-            (box, color, duration) => {
+            function(params) {
+                const box = params.box;
+                const color = params.color;
+                const duration = params.duration;
+                
+                // Create or get highlight container
+                let container = document.getElementById('highlight-container');
+                if (!container) {
+                    container = document.createElement("div");
+                    container.id = 'highlight-container';
+                    container.style.position = "fixed";
+                    container.style.pointerEvents = "none";
+                    container.style.top = "0";
+                    container.style.left = "0";
+                    container.style.width = "100%";
+                    container.style.height = "100%";
+                    container.style.zIndex = "2147483647";
+                    document.body.appendChild(container);
+                }
+                
+                // Generate a color based on the index
+                const COLORS = ["#FF5733", "#33FF57", "#3357FF", "#F3FF33", "#FF33F3", "#33FFF3"];
+                const colorIndex = 0; // Use first color for single element
+                const baseColor = COLORS[colorIndex];
+                const backgroundColor = baseColor + "1A"; // 10% opacity version of the color
+                
                 // Create a highlight element
-                const highlight = document.createElement('div');
-                highlight.style.position = 'absolute';
-                highlight.style.top = (box.y + window.scrollY) + 'px';
-                highlight.style.left = (box.x + window.scrollX) + 'px';
-                highlight.style.width = box.width + 'px';
-                highlight.style.height = box.height + 'px';
-                highlight.style.border = '2px solid ' + color.replace(')', ', 1)').replace('rgba', 'rgb');
-                highlight.style.backgroundColor = color;
-                highlight.style.zIndex = '10000';
-                highlight.style.pointerEvents = 'none';  // Don't interfere with clicks
+                const highlight = document.createElement("div");
+                highlight.style.position = "fixed";
+                highlight.style.left = `${box.x}px`;
+                highlight.style.top = `${box.y}px`;
+                highlight.style.width = `${box.width}px`;
+                highlight.style.height = `${box.height}px`;
+                highlight.style.backgroundColor = backgroundColor;
+                highlight.style.border = `2px solid ${baseColor}`;
+                highlight.style.boxSizing = "border-box";
+                highlight.style.pointerEvents = "none";
+                highlight.style.zIndex = "10000";
                 highlight.className = 'element-highlight';
                 
-                // Add the highlight to the page
-                document.body.appendChild(highlight);
+                // Add the highlight to the container
+                container.appendChild(highlight);
                 
                 // Remove the highlight after the specified duration
                 if (duration > 0) {
@@ -149,7 +179,7 @@ class ElementHighlighter:
                 
                 return true;
             }
-        """, box, color, duration)
+        """, {"box": box, "color": color, "duration": duration})
         
     async def highlight_and_click(self, 
                                  selector: str, 
@@ -188,3 +218,19 @@ class ElementHighlighter:
             await self.page.wait_for_timeout(post_click_delay)
             
         return True
+
+    async def highlight_all_text(self, parent_selector: str) -> int:
+        """
+        Highlight all text nodes within a parent element.
+        
+        Args:
+            parent_selector: CSS selector for the parent element
+            
+        Returns:
+            Number of text nodes highlighted
+        """
+        return await self.page.evaluate("""
+            (parentSelector) => {
+                return window.elementHighlighter.highlightAllText(parentSelector);
+            }
+        """, parent_selector)

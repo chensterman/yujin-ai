@@ -80,8 +80,8 @@ window.photoDisplay = {
                 
                 // Draw landmarks on canvas
                 const ctx = canvas.getContext('2d');
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Changed to red for better visibility
-                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
                 ctx.lineWidth = 2; // Increased line width
                 
                 // Draw each landmark point with scaling
@@ -90,9 +90,9 @@ window.photoDisplay = {
                     point[1] * scaleY
                 ]);
                 
-                scaledLandmarks.forEach((point, index) => {
+                scaledLandmarks.forEach((point) => {
                     ctx.beginPath();
-                    ctx.arc(point[0], point[1], 2, 0, 2 * Math.PI); // Increased point size
+                    ctx.arc(point[0], point[1], 2, 0, 2 * Math.PI);
                     ctx.fill();
                 });
                 

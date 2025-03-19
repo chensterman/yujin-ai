@@ -48,33 +48,23 @@ async def browser_init():
     await controller.setup()  # Call the setup method on the controller
 
     return browser_manager, page, highlighter, controller
-    
 
-async def demo_element_highlighting(controller: PageController, highlighter: ElementHighlighter):
-    """Navigate to Bumble and highlight interactive elements."""
-    
-    # Navigate to Bumble (assuming logged in)
+
+async def navigate_to_bumble(controller: PageController):
+    # Navigate to Bumble (assuming logged in) and wait for page to load
     await controller.navigate("https://bumble.com/app")
-
-    # Wait for the page to load
-    await controller.page.wait_for_timeout(2000)
-    
-    # Use the highlighter to find and highlight all interactive elements
-    num_elements = await highlighter.find_and_highlight_interactive_elements(
-        do_highlight=True,
-        viewport_expansion=500  # Expand viewport by 500px in all directions
-    )
-
-
-async def demo_profile_rating(controller: PageController, highlighter: ElementHighlighter):
-    """Navigate to Bumble and rate profiles."""
-    
-    # Navigate to Bumble (assuming logged in)
-    await controller.navigate("https://bumble.com/app")
-    
-    # Wait for the page to load completely
     await controller.page.wait_for_load_state("domcontentloaded")
-    await controller.page.wait_for_timeout(5000)
+    await controller.page.wait_for_timeout(2000)
+
+
+async def profile_rating(controller: PageController, highlighter: ElementHighlighter):
+    """Rate profiles based on attractiveness."""
+
+    # Highlight all text on profile, wait for user to see the highlights, then remove
+    encounters_selector = "div.encounters-album__stories-container"
+    await highlighter.highlight_all_text(encounters_selector)
+    await controller.page.wait_for_timeout(3000)
+    await highlighter.remove_all_highlights()
     
     # Try multiple selectors for profile photos
     profile_photo_selectors = [
@@ -98,7 +88,7 @@ async def demo_profile_rating(controller: PageController, highlighter: ElementHi
     
     if not profile_photos:
         print("No profile photos found with any of the known selectors.")
-        return
+        return False
     
     # Extract src URLs from all photos
     photo_urls = []
@@ -117,7 +107,7 @@ async def demo_profile_rating(controller: PageController, highlighter: ElementHi
     
     if not photo_urls:
         print("No valid photo URLs found. The page structure might have changed.")
-        return
+        return False
     
     # Download the shape predictor model if needed
     await ensure_shape_predictor_exists()
@@ -132,7 +122,9 @@ async def demo_profile_rating(controller: PageController, highlighter: ElementHi
     # Inject the JavaScript into the page
     await controller.page.add_script_tag(content=js_code)
     
-    # Cycle through each photo
+    # Cycle through each photo and gather total + count for attractiveness
+    total_attractiveness = 0
+    count = 0
     for i, url in enumerate(photo_urls):
         try:
             # Process the image using the face_analysis module
@@ -140,6 +132,11 @@ async def demo_profile_rating(controller: PageController, highlighter: ElementHi
             
             # Use the injected JavaScript to display the photo with landmarks and metrics
             if landmarks and attractiveness_score and metrics and image_dimensions:
+
+                # Update total attractiveness and count
+                total_attractiveness += attractiveness_score
+                count += 1
+
                 # Convert landmarks to a format that can be passed to JavaScript
                 landmarks_js = [[point[0], point[1]] for point in landmarks]
                 
@@ -171,23 +168,64 @@ async def demo_profile_rating(controller: PageController, highlighter: ElementHi
                 await controller.page.evaluate("(url) => window.photoDisplay.displayPhoto(url, null, null, null)", url)
             
             # Wait for the specified duration
-            await controller.page.wait_for_timeout(3000)  # Display each photo for 3 seconds
+            await controller.page.wait_for_timeout(2000)  # Display each photo for 2 seconds
             
         except Exception as e:
             print(f"Error processing photo: {e}")
-            import traceback
-            traceback.print_exc()
     
     # Remove the display container at the end
     await controller.page.evaluate("() => window.photoDisplay.removePhotoDisplay()")
 
+    # Calculate average attractiveness and return True if average attractiveness is greater than 7.0
+    average_attractiveness = total_attractiveness / count if count > 0 else 0
+    if average_attractiveness > 7.0:
+        return True
+    return False
+
+
+async def swipe(swipe_right: bool, controller: PageController, highlighter: ElementHighlighter):
+    if swipe_right:
+        like_button_selector = "div.encounters-action.tooltip-activator.encounters-action--like"
+        await highlighter.highlight_and_click(
+            selector=like_button_selector,
+            color="rgba(0, 255, 0, 0.5)",  # Green highlight
+            pre_click_delay=2000,  # Wait 2 seconds before clicking
+            post_click_delay=2000   # Wait 2 seconds after clicking
+        )
+    else:
+        dislike_button_selector = "div.encounters-action.tooltip-activator.encounters-action--dislike"
+        await highlighter.highlight_and_click(
+            selector=dislike_button_selector,
+            color="rgba(255, 0, 0, 0.5)",  # Red highlight
+            pre_click_delay=2000,  # Wait 2 seconds before clicking
+            post_click_delay=2000   # Wait 2 seconds after clicking
+        )
+    
+    # Wait for the swipe animation to complete
+    await controller.page.wait_for_timeout(1000)
+    
+    # If match occurs, check for "continue bumbling" button and click it if present
+    continue_button = "button.button.button--size-m:has-text('Continue Bumbling')"
+    await highlighter.highlight_and_click(
+        selector=continue_button,
+        color="rgba(0, 255, 0, 0.5)",  # Green highlight
+        pre_click_delay=2000,  # Wait 2 seconds before clicking
+        post_click_delay=2000   # Wait 2 seconds after clicking
+    )
+
 
 # Define main async function
 async def main():
-    # Run automations
+    # Initialize browser classes
     browser_manager, page, highlighter, controller = await browser_init()
-    # await demo_element_highlighting(controller, highlighter)
-    await demo_profile_rating(controller, highlighter)
+
+    # Run automations
+    await navigate_to_bumble(controller)
+    for i in range(3):
+        swipe_right = await profile_rating(controller, highlighter)
+        await swipe(swipe_right, controller, highlighter)
+    
+    # Close browser
     await browser_manager.close()
 
 
@@ -195,6 +233,7 @@ if __name__ == "__main__":
     # Create necessary directories
     os.makedirs("data/screenshots", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
     
     # Run the main function
     asyncio.run(main())

@@ -223,22 +223,38 @@ class BrowserManager:
         # Set hardware concurrency to a common value
         await page.evaluate("""
         () => {
-            Object.defineProperty(navigator, 'hardwareConcurrency', {
-                get: () => {
-                    return [2, 4, 8][Math.floor(Math.random() * 3)];
+            try {
+                // Check if the property is configurable
+                const descriptor = Object.getOwnPropertyDescriptor(navigator, 'hardwareConcurrency');
+                if (descriptor && descriptor.configurable) {
+                    Object.defineProperty(navigator, 'hardwareConcurrency', {
+                        get: () => {
+                            return [2, 4, 8][Math.floor(Math.random() * 3)];
+                        }
+                    });
                 }
-            });
+            } catch (e) {
+                console.log('Could not modify hardwareConcurrency:', e);
+            }
         }
         """)
         
         # Randomize device memory
         await page.evaluate("""
         () => {
-            Object.defineProperty(navigator, 'deviceMemory', {
-                get: () => {
-                    return [2, 4, 8][Math.floor(Math.random() * 3)];
+            try {
+                // Check if the property is configurable
+                const descriptor = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
+                if (descriptor && descriptor.configurable) {
+                    Object.defineProperty(navigator, 'deviceMemory', {
+                        get: () => {
+                            return [2, 4, 8][Math.floor(Math.random() * 3)];
+                        }
+                    });
                 }
-            });
+            } catch (e) {
+                console.log('Could not modify deviceMemory:', e);
+            }
         }
         """)
     

@@ -355,7 +355,8 @@ window.elementHighlighter = (function() {
     const defaults = {
       doHighlightElements: true,
       focusHighlightIndex: -1,
-      viewportExpansion: 0
+      viewportExpansion: 0,
+      parentSelector: null
     };
     
     const config = {...defaults, ...options};
@@ -368,8 +369,20 @@ window.elementHighlighter = (function() {
     // Remove any existing highlights
     removeAllHighlights();
     
-    // Start processing from the body
-    buildDomTree(document.body);
+    // If parentSelector is provided, use that as the starting point
+    let startNode = document.body;
+    if (config.parentSelector) {
+      const parentElement = document.querySelector(config.parentSelector);
+      if (parentElement) {
+        console.log(`Starting highlight from parent selector: ${config.parentSelector}`);
+        startNode = parentElement;
+      } else {
+        console.warn(`Parent selector not found: ${config.parentSelector}, using document.body`);
+      }
+    }
+    
+    // Start processing from the selected node
+    buildDomTree(startNode);
     
     return highlightIndex;
   }
@@ -458,10 +471,106 @@ window.elementHighlighter = (function() {
     }
   }
   
+  // Function to highlight all text nodes within a parent element
+  function highlightAllText(parentSelector) {
+    // Remove any existing highlights
+    removeAllHighlights();
+    
+    // Reset for new highlighting session
+    highlightIndex = 0;
+    ID.current = 0;
+    DOM_CACHE.clearCache();
+    
+    // Find the parent element
+    const parentElement = document.querySelector(parentSelector);
+    if (!parentElement) {
+      console.warn(`Parent selector not found: ${parentSelector}`);
+      return 0;
+    }
+    
+    console.log(`Highlighting all text within: ${parentSelector}`);
+    
+    // Create a container for highlights if it doesn't exist
+    let container = document.getElementById(HIGHLIGHT_CONTAINER_ID);
+    if (!container) {
+      container = document.createElement("div");
+      container.id = HIGHLIGHT_CONTAINER_ID;
+      container.style.position = "fixed";
+      container.style.pointerEvents = "none";
+      container.style.top = "0";
+      container.style.left = "0";
+      container.style.width = "100%";
+      container.style.height = "100%";
+      container.style.zIndex = "2147483647";
+      document.body.appendChild(container);
+    }
+    
+    // Function to process text nodes
+    function processTextNodes(node) {
+      // Skip script and style elements
+      if (node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE') {
+        return;
+      }
+      
+      // If this is a text node with non-whitespace content
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+        // Get the parent element of the text node
+        const parentElement = node.parentElement;
+        if (parentElement) {
+          // Create a range for the text node
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          
+          // Get the bounding client rect
+          const rects = range.getClientRects();
+          
+          // Highlight each rect
+          for (let i = 0; i < rects.length; i++) {
+            const rect = rects[i];
+            if (rect.width > 0 && rect.height > 0) {
+              // Generate a color based on the index
+              const colorIndex = highlightIndex % COLORS.length;
+              const baseColor = COLORS[colorIndex];
+              const backgroundColor = baseColor + "1A"; // 10% opacity version of the color
+              
+              // Create a highlight element
+              const highlight = document.createElement("div");
+              highlight.style.position = "fixed";
+              highlight.style.left = `${rect.left}px`;
+              highlight.style.top = `${rect.top}px`;
+              highlight.style.width = `${rect.width}px`;
+              highlight.style.height = `${rect.height}px`;
+              highlight.style.backgroundColor = backgroundColor;
+              highlight.style.border = `2px solid ${baseColor}`;
+              highlight.style.boxSizing = "border-box";
+              highlight.style.pointerEvents = "none";
+              highlight.style.zIndex = "10000";
+              
+              // Add the highlight to the container
+              container.appendChild(highlight);
+              highlightIndex++;
+            }
+          }
+        }
+      }
+      
+      // Process child nodes
+      for (let i = 0; i < node.childNodes.length; i++) {
+        processTextNodes(node.childNodes[i]);
+      }
+    }
+    
+    // Start processing from the parent element
+    processTextNodes(parentElement);
+    
+    return highlightIndex;
+  }
+
   // Public API
   return {
     findAndHighlightInteractiveElements: findAndHighlightInteractiveElements,
     removeAllHighlights: removeAllHighlights,
-    isInteractiveElement: isInteractiveElement
+    isInteractiveElement: isInteractiveElement,
+    highlightAllText: highlightAllText
   };
 })();
