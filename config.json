@@ -6,7 +6,17 @@
             "width": 1280,
             "height": 800
         },
-        "user_agent": null
+        "user_agent": null,
+        "stealth_mode": true,
+        "randomize_behavior": true,
+        "bypass_webdriver_flags": true,
+        "proxy": null,
+        "use_debug_mode": false,
+        "random_delays": {
+            "enabled": true,
+            "min_delay": 100,
+            "max_delay": 500
+        }
     },
     "highlighting": {
         "enabled": true,

@@ -20,21 +20,10 @@ from utils.logger import setup_logger
 from utils.config import Config
 from utils.profile_selector import select_profile_interactive
 
-
-async def demo_element_highlighting():
-    """Demonstrate element highlighting capabilities."""
+async def browser_init():
+    """Setup browser automation."""
     
-    logger = setup_logger("TinderAutomation")
     config = Config()
-    
-    logger.info("Starting browser automation demo with element highlighting")
-    
-    # Allow user to select a Chrome profile
-    user_data_dir = select_profile_interactive()
-    if user_data_dir:
-        logger.info(f"Using Chrome profile at: {user_data_dir}")
-    else:
-        logger.info("Using a fresh browser instance (no profile)")
     
     # Initialize the browser
     browser_manager = BrowserManager(
@@ -42,54 +31,45 @@ async def demo_element_highlighting():
         slow_mo=config.get("browser.slow_mo", 50),
         viewport_size=config.get("browser.viewport_size", {"width": 1920, "height": 1080}),
         user_agent=config.get("browser.user_agent"),
-        user_data_dir=user_data_dir
+        enable_stealth_mode=config.get("browser.stealth_mode", True),
+        randomize_behavior=config.get("browser.randomize_behavior", True),
+        bypass_webdriver_flags=config.get("browser.bypass_webdriver_flags", True),
+        proxy=config.get("browser.proxy"),
     )
     
-    try:
-        # Start the browser
-        page = await browser_manager.start()
-        logger.info("Browser started successfully")
-        
-        # Initialize the highlighter and page controller
-        highlighter = ElementHighlighter(page)
-        await highlighter.setup()  # Call the setup method to initialize the highlighter
-        controller = PageController(page, highlighter)
-        await controller.setup()  # Call the setup method on the controller
-        
-        # Now navigate to Tinder (but don't actually log in)
-        logger.info("Navigating to Tinder")
-        await controller.navigate("https://tinder.com")
-        
-        # Wait for the page to load
-        await page.wait_for_timeout(2000)
-        
-        # Highlight some UI elements on Tinder's homepage
-        logger.info("Highlighting interactive elements on Tinder's homepage")
-        
-        # Use the highlighter to find and highlight all interactive elements
-        num_elements = await highlighter.find_and_highlight_interactive_elements(
-            do_highlight=True,
-            viewport_expansion=500  # Expand viewport by 500px in all directions
-        )
-        
-        logger.info(f"Found and highlighted {num_elements} interactive elements")
-        
-        # Wait for user to see the demo
-        logger.info("Demo completed.")
-        await page.wait_for_timeout(5000)
-        
-    except Exception as e:
-        logger.error(f"Error during demo: {str(e)}")
-    finally:
-        # Close the browser
-        await browser_manager.close()
-        logger.info("Browser closed")
+    # Initialize the highlighter and page controller
+    page = await browser_manager.start()
+    highlighter = ElementHighlighter(page)
+    await highlighter.setup()  # Call the setup method to initialize the highlighter
+    controller = PageController(page, highlighter)
+    await controller.setup()  # Call the setup method on the controller
 
+    return browser_manager, page, highlighter, controller
+    
+
+async def demo_element_highlighting(controller: PageController, highlighter: ElementHighlighter):
+    """Navigate to Bumble and highlight interactive elements."""
+    
+    # Navigate to Bumble (but don't actually log in)
+    await controller.navigate("https://bumble.com/app")
+    
+    # Use the highlighter to find and highlight all interactive elements
+    num_elements = await highlighter.find_and_highlight_interactive_elements(
+        do_highlight=True,
+        viewport_expansion=500  # Expand viewport by 500px in all directions
+    )
+
+# Define main async function
+async def main():
+    # Run automations
+    browser_manager, page, highlighter, controller = await browser_init()
+    await demo_element_highlighting(controller, highlighter)
+    await browser_manager.close()
 
 if __name__ == "__main__":
     # Create necessary directories
     os.makedirs("data/screenshots", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     
-    # Run the demo
-    asyncio.run(demo_element_highlighting())
+    # Run the main function
+    asyncio.run(main())
