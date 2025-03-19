@@ -36,9 +36,9 @@ class PageController:
             await self.highlighter.setup()
             setattr(self.highlighter, '_initialized', True)
     
-    async def navigate(self, url: str, wait_until: str = "networkidle", timeout: int = 30000) -> bool:
+    async def navigate(self, url: str, wait_until: str = "domcontentloaded", timeout: int = 60000) -> bool:
         """
-        Navigate to a URL with enhanced error handling.
+        Navigate to a URL with enhanced error handling and bot detection bypass.
         
         Args:
             url: URL to navigate to
@@ -49,16 +49,91 @@ class PageController:
             True if navigation was successful, False otherwise
         """
         try:
-            await self.page.goto(url, wait_until=wait_until, timeout=timeout)
+            # Add randomized delay before navigation to appear more human-like
+            await asyncio.sleep(0.5 + (asyncio.get_event_loop().time() * 10) % 1.5)
+            
+            # First try with a more relaxed wait condition
+            self.logger.info(f"Navigating to {url} with wait_until={wait_until}")
+            
+            # Use a more relaxed wait condition initially
+            response = await self.page.goto(url, wait_until=wait_until, timeout=timeout)
+            
+            if not response:
+                self.logger.warning(f"No response received when navigating to {url}")
+                return False
+                
+            # Check if we got redirected to a CAPTCHA or security page
+            current_url = self.page.url
+            if "captcha" in current_url.lower() or "security" in current_url.lower() or "challenge" in current_url.lower():
+                self.logger.warning(f"Detected possible bot challenge at {current_url}")
+                # Wait for manual intervention
+                self.logger.info("Waiting for manual intervention to solve the challenge...")
+                await self.page.wait_for_timeout(30000)  # Wait 30 seconds for manual intervention
+                
+            # Add some random scrolling and mouse movements to appear more human-like
+            await self._perform_human_like_behavior()
+            
             self.logger.info(f"Successfully navigated to {url}")
             return True
         except TimeoutError:
             self.logger.warning(f"Navigation to {url} timed out after {timeout}ms")
+            
+            # Even if navigation times out, the page might still be partially loaded
+            # Try to continue with what we have
+            self.logger.info("Attempting to continue with partially loaded page...")
+            
+            # Perform some human-like behavior to potentially trigger lazy-loaded content
+            await self._perform_human_like_behavior()
+            
+            # Check if we're on any page related to the target domain
+            current_url = self.page.url
+            target_domain = url.split("//")[-1].split("/")[0]
+            if target_domain in current_url:
+                self.logger.info(f"Page partially loaded at {current_url}, continuing...")
+                return True
+                
             return False
         except Exception as e:
             self.logger.error(f"Failed to navigate to {url}: {str(e)}")
             return False
-    
+            
+    async def _perform_human_like_behavior(self):
+        """Perform random human-like behavior to appear more natural."""
+        try:
+            # Random scrolling
+            await self.page.evaluate("""
+                () => {
+                    const scrollAmount = Math.floor(Math.random() * window.innerHeight * 0.8);
+                    window.scrollBy(0, scrollAmount);
+                    
+                    // Add some random small scrolls
+                    setTimeout(() => {
+                        window.scrollBy(0, Math.floor(Math.random() * 100) - 50);
+                    }, Math.random() * 1000 + 500);
+                }
+            """)
+            
+            # Random wait
+            await self.page.wait_for_timeout(1000 + int(asyncio.get_event_loop().time() * 1000) % 2000)
+            
+            # Move mouse to random position
+            page_size = await self.page.evaluate("""
+                () => {
+                    return {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    }
+                }
+            """)
+            
+            if page_size:
+                x = int(page_size["width"] * 0.2 + (asyncio.get_event_loop().time() * 1000) % (page_size["width"] * 0.6))
+                y = int(page_size["height"] * 0.2 + (asyncio.get_event_loop().time() * 500) % (page_size["height"] * 0.6))
+                await self.page.mouse.move(x, y)
+                
+        except Exception as e:
+            self.logger.warning(f"Error during human-like behavior simulation: {str(e)}")
+            
     async def wait_for_element(self, 
                               selector: str, 
                               timeout: int = 10000,
@@ -295,83 +370,6 @@ class PageController:
             self.logger.error(f"Failed to take screenshot: {str(e)}")
             return False
             
-    async def get_unique_selector(self, element: ElementHandle) -> Optional[str]:
-        """
-        Generate a unique CSS selector for an element.
-        
-        Args:
-            element: Playwright ElementHandle to generate selector for
-            
-        Returns:
-            A CSS selector string that uniquely identifies the element, or None if failed
-        """
-        try:
-            # Try to get a unique selector using Playwright's built-in functionality
-            return await element.evaluate("""element => {
-                // Helper function to escape CSS selector special characters
-                const escapeCSS = str => str.replace(/[\\:\\.\\/\\[\\]]/g, '\\\\$&');
-                
-                // Try to find a unique ID first
-                if (element.id) {
-                    return '#' + escapeCSS(element.id);
-                }
-                
-                // Try using a unique class combination
-                if (element.classList && element.classList.length > 0) {
-                    const classSelector = Array.from(element.classList).map(c => '.' + escapeCSS(c)).join('');
-                    // Test if this selector is unique
-                    if (document.querySelectorAll(classSelector).length === 1) {
-                        return classSelector;
-                    }
-                }
-                
-                // Try using tag name with attributes
-                const tagName = element.tagName.toLowerCase();
-                
-                // Check for common attributes that might be unique
-                for (const attr of ['data-testid', 'name', 'aria-label', 'role', 'type']) {
-                    if (element.hasAttribute(attr)) {
-                        const attrValue = element.getAttribute(attr);
-                        const selector = `${tagName}[${attr}="${attrValue}"]`;
-                        if (document.querySelectorAll(selector).length === 1) {
-                            return selector;
-                        }
-                    }
-                }
-                
-                // If no unique selector found yet, use nth-child with parent context
-                let current = element;
-                let selector = tagName;
-                let iterations = 0;
-                const maxIterations = 5; // Prevent infinite loops
-                
-                while (document.querySelectorAll(selector).length > 1 && iterations < maxIterations) {
-                    // Find the index of the current element among its siblings
-                    const parent = current.parentElement;
-                    if (!parent) break;
-                    
-                    const siblings = Array.from(parent.children);
-                    const index = siblings.indexOf(current) + 1;
-                    
-                    // Update the selector with nth-child
-                    selector = `${tagName}:nth-child(${index})`;
-                    
-                    // Add parent context if needed
-                    if (document.querySelectorAll(selector).length > 1) {
-                        const parentTag = parent.tagName.toLowerCase();
-                        selector = `${parentTag} > ${selector}`;
-                        current = parent;
-                    }
-                    
-                    iterations++;
-                }
-                
-                return selector;
-            }""")
-        except Exception as e:
-            self.logger.error(f"Failed to get unique selector: {str(e)}")
-            return None
-
     async def get_unique_selector(self, element: ElementHandle) -> Optional[str]:
         """
         Generate a unique CSS selector for an element.
