@@ -124,11 +124,14 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
             await chat.click(force=True)
             print("successfully clicked")
             # # Wait for 2 seconds after clicking to allow the chat to load
-            # await controller.page.wait_for_timeout(2000)
-            # conversation = await chat_extractor.extract_conversation()
-            # print("conversation: ", conversation)
-            # next_message = await call_llm(conversation)
-            # print(next_message)
+            await controller.page.wait_for_timeout(2000)
+            conversation = await chat_extractor.extract_conversation()
+            print("conversation: ", conversation)
+            next_message = await call_llm(conversation)
+            # Remove "self:" prefix if it exists
+            if next_message.startswith("self:"):
+                next_message = next_message[5:].strip()
+            print(next_message)
             try:
                 textarea_locator = controller.page.locator(
                     "textarea.textarea__input[placeholder='Start chatting...']")
@@ -136,6 +139,11 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
                 await highlighter.highlight_specific_element(
                     textarea_element,
                 )
+                await textarea_locator.fill("")  # Clear any existing text
+                # Type with realistic delay
+                await controller.page.wait_for_timeout(100)
+                await textarea_locator.type(next_message, delay=50)
+                await controller.page.wait_for_timeout(2000)
             except Exception as e:
                 print(
                     f"Failed to highlight and fill out chat locator: {str(e)}")
