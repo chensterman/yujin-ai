@@ -20,9 +20,18 @@ import asyncio
 import os
 import sys
 from typing import List, Dict, Any, Optional
+<<<<<<< Updated upstream
+=======
+from playwright.async_api import Page
+import pathlib
+import cv2
+import tempfile
+from utils.face_analysis import ensure_shape_predictor_exists, process_image_from_url
+>>>>>>> Stashed changes
 
 # Add the project root to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 
 
 async def browser_init():
@@ -231,7 +240,10 @@ async def swipe(swipe_right: bool, controller: PageController, highlighter: Elem
 async def main():
     # Run automations
     browser_manager, page, highlighter, controller = await browser_init()
+<<<<<<< Updated upstream
     await demo_element_highlighting(controller, highlighter)
+=======
+>>>>>>> Stashed changes
     print("set up browser ")
     # Run automations
     await navigate_to_bumble(controller)

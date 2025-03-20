@@ -14,6 +14,7 @@ from chat.chat_extractor import ChatExtractor
 from browser.page_controller import PageController
 from browser.element_highlighter import ElementHighlighter
 from browser.browser_manager import BrowserManager
+from openai import OpenAI
 import asyncio
 import os
 import sys
@@ -30,6 +31,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 
 # Add the project root to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+client = OpenAI()
 
 
 async def browser_init():
@@ -61,6 +63,42 @@ async def browser_init():
     return browser_manager, page, highlighter, controller
 
 
+async def call_llm(prompt):
+    """
+    Generate a response using the OpenAI API for dating app conversations.
+    Returns the generated response as a string.
+    """
+    # If prompt is an array of messages, convert it to a formatted string
+    if isinstance(prompt, list):
+        formatted_prompt = ""
+        for message in prompt:
+            sender = message.get('sender', 'Unknown')
+            text = message.get('text', '')
+            formatted_prompt += f"{sender}: {text}\n"
+        prompt = formatted_prompt
+
+    # OpenAI's client.chat.completions.create is not an async call,
+    # so we need to run it in a thread pool to avoid blocking
+    completion = await asyncio.to_thread(
+        client.chat.completions.create,
+        model="gpt-4o-mini-2024-07-18",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful dating assistant. You'll be given a conversation from a dating app. Analyze the conversation and craft a thoughtful, engaging response that continues the conversation naturally. Your response should be friendly, show genuine interest, and ask a relevant question to keep the conversation going. Avoid being too forward or using generic pickup lines. Match the tone and style of the previous messages. If the conversation is new, create a warm opening that references something from their profile."
+            },
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt}]
+            }
+        ]
+    )
+
+    response_text = completion.choices[0].message.content
+    print(response_text)
+    return response_text
+
+
 async def automate_chats(controller: PageController, highlighter: ElementHighlighter):
     try:
         await asyncio.wait_for(controller.navigate("https://bumble.com/app/connections"), timeout=5)
@@ -83,12 +121,14 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
     for chat in chat_items[2:3]:
         await highlighter.highlight_specific_element(chat)
         try:
-            await chat.click()
+            await chat.click(force=True)
             print("successfully clicked")
             # Wait for 2 seconds after clicking to allow the chat to load
             await controller.page.wait_for_timeout(2000)
             conversation = await chat_extractor.extract_conversation()
             print("conversation: ", conversation)
+            next_message = await call_llm(conversation)
+            print(next_message)
         except Exception as e:
             print(f"Failed to highlight and click chat: {str(e)}")
 
