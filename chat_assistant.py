@@ -123,12 +123,22 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
         try:
             await chat.click(force=True)
             print("successfully clicked")
-            # Wait for 2 seconds after clicking to allow the chat to load
-            await controller.page.wait_for_timeout(2000)
-            conversation = await chat_extractor.extract_conversation()
-            print("conversation: ", conversation)
-            next_message = await call_llm(conversation)
-            print(next_message)
+            # # Wait for 2 seconds after clicking to allow the chat to load
+            # await controller.page.wait_for_timeout(2000)
+            # conversation = await chat_extractor.extract_conversation()
+            # print("conversation: ", conversation)
+            # next_message = await call_llm(conversation)
+            # print(next_message)
+            try:
+                textarea_locator = controller.page.locator(
+                    "textarea.textarea__input[placeholder='Start chatting...']")
+                textarea_element = await textarea_locator.element_handle()
+                await highlighter.highlight_specific_element(
+                    textarea_element,
+                )
+            except Exception as e:
+                print(
+                    f"Failed to highlight and fill out chat locator: {str(e)}")
         except Exception as e:
             print(f"Failed to highlight and click chat: {str(e)}")
 
