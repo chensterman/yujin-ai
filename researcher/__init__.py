@@ -1,0 +1,1 @@
+from researcher.researcher import research_image
