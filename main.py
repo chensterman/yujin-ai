@@ -48,7 +48,8 @@ async def main():
     browser_manager, page, highlighter, controller = await browser_init()
     
     # Swipe on one profile
-    await swipe_on_latest(controller, highlighter, testing=True)
+    for i in range(10):
+        await swipe_on_latest(controller, highlighter)
     
     # Chat to latest unresponded message (if any)
     await chat_to_latest(controller, highlighter, testing=True)

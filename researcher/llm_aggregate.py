@@ -52,7 +52,8 @@ def aggregate_person_info(scraped_results: List[Dict[str, Any]], person_context:
     1. Name: The full name of the person
     2. Description: A concise description of who this person is, their background, and notable information
     
-    All of the web sources you are given are likely to be about the same person. There may be some noise. Do your best to isolate the information about the person of interest.
+    All of the web sources you are given are likely to be about the same person. There may be some noise. 
+    Do your best to isolate the information about the person of interest.
     If you cannot determine certain information with confidence, indicate this with 'Unknown'.
     Format your response as a JSON object with the keys 'name' and 'description'.
     """
@@ -64,7 +65,7 @@ def aggregate_person_info(scraped_results: List[Dict[str, Any]], person_context:
     You will be given scraped data from various web pages where the person of interest
     had their image featured. Your task is to extract structured information about the
     person of interest from this data, if it exists on the web pages given. Include the
-    context provided in your response.
+    context provided in your response, along with any info from the web pages.
 
     Web page data:
     \n\n{combined_content}

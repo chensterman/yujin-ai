@@ -372,11 +372,77 @@ async def swipe_on_latest(controller: PageController, highlighter: ElementHighli
     profile_photo_url = await retrieve_profile_photo_url(controller, highlighter)
     profile_text = await retrieve_profile_info(controller, highlighter)
     
+    # Show loading indicator before research
+    try:
+        import os
+        import pathlib
+        
+        # Get the absolute path to the loading indicator JavaScript file
+        script_dir = pathlib.Path(__file__).parent.parent.absolute()
+        loading_js_path = os.path.join(script_dir, 'static', 'js', 'loading_indicator.js')
+        
+        # Read and inject the loading indicator JavaScript
+        with open(loading_js_path, 'r') as file:
+            loading_js_code = file.read()
+        
+        await controller.page.evaluate(loading_js_code)
+        
+        # Show the loading indicator with custom message
+        await controller.page.evaluate("""
+            () => {
+                window.loadingIndicator.show("Conducting background check...");
+            }
+        """)
+    except Exception as e:
+        print(f"Error showing loading indicator: {str(e)}")
+    
     # Research personal info
     if not testing:
         person_research = research_image(profile_photo_url, profile_text)
     else:
         person_research = {'name': 'Rieley', 'description': "Rieley is a 27-year-old Account Executive at a SaaS company, who studied at Endicott College. He is based in Boston, Massachusetts, and originally from Hartford, Connecticut. Rieley is 6'1'' tall, identifies as a Sagittarius, and holds a graduate degree. He is active and values consistency and compassion. Rieley enjoys music from artists like Yeat, Playboi Carti, and Lil Uzi Vert.", 'metadata': [{'url': 'https://endicott.prestosports.com/sports/msoc', 'thumbnailUrl': 'https://jsc4.pimeyes.com/proxy/d8ab19d5c7a0f27c10fa57540506ac68c126b9bd1ca84d5db720bf86c391405628829c11fda45e115bdfd565e73e92350d5632c7408f21f1cd86f41c312516518184ddbda6e50e28bcfbf19713d86194d761d44c656bc0da8e1b6493ce5b93c579da5b3336dc4ecfbe2aeedd9fc73b1edf4ce5de5902e1f5585738458b0c3a5746b4aa2719e832eda90a2770b26a0ac0a776450acd6b86c8e7e8e0b18a1da15be9463b2f38590a4c8537a50d72e821d065ae7ca8260104b0c97b190d2f8b1ac67484d6c374c85900d24c5613f3218dcde45e01e49b3a78e07b01a56975fa414f7fea21621b7b059bbefe3c2257c0d6f90a01599037a382fa9acb6d65e225ebd1fb8049d06e99e8ad7cc6ed1758cd5e7901b8af0174bbf97ee324a929e9dc895abce292f007f2c33068e3eed66dcd5a442d6e89c05227e39a4b441562d710ce545b2aaaab52b225ed380cee24384e8cf2', 'likenessScore': 82.97387361526489}]}
+    
+    # Hide the loading indicator after research is complete
+    try:
+        await controller.page.evaluate("""
+            () => {
+                if (window.loadingIndicator) {
+                    window.loadingIndicator.hide();
+                }
+            }
+        """)
+    except Exception as e:
+        print(f"Error hiding loading indicator: {str(e)}")
+    
+    # Display the person research information if successful
+    if person_research:
+        try:
+            import os
+            import pathlib
+            
+            # Get the absolute path to the JavaScript file
+            script_dir = pathlib.Path(__file__).parent.parent.absolute()
+            js_file_path = os.path.join(script_dir, 'static', 'js', 'research_display.js')
+            
+            # Read the JavaScript file
+            with open(js_file_path, 'r') as file:
+                js_code = file.read()
+            
+            # Inject the JavaScript code into the page
+            await controller.page.evaluate(js_code)
+            
+            # Display the research information
+            await controller.page.evaluate("""
+                (data) => {
+                    window.researchDisplay.displayResearch(data);
+                }
+            """, person_research)
+            
+            # Wait for 3 seconds
+            await controller.page.wait_for_timeout(3000)
+            
+        except Exception as e:
+            print(f"Error displaying research information: {str(e)}")
     
     # Rate profile attractiveness
     swipe_right = await attractiveness_rating(controller, highlighter)

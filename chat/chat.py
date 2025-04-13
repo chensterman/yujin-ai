@@ -57,18 +57,39 @@ async def navigate_to_bumble(controller: PageController):
 
 async def get_latest_conversation(controller: PageController, highlighter: ElementHighlighter) -> List[Dict[str, str]]:
     # Select next chat that is your turn
-    like_button_selector = "div.contact__move-label"
-    await highlighter.highlight_and_click(
-        selector=like_button_selector,
-        color="rgba(0, 255, 0, 0.5)",  # Green highlight
-        pre_click_delay=1000,  # Wait 1 seconds before clicking
-        post_click_delay=1000   # Wait 1 seconds after clicking
-    )
+    # Try both possible selectors for finding the next conversation
+    try:
+        # First try the move label
+        next_move_selector = "div.contact__move-label"
+        move_label_exists = await controller.page.locator(next_move_selector).count() > 0
+        
+        if move_label_exists:
+            await highlighter.highlight_and_click(
+                selector=next_move_selector,
+                color="rgba(0, 255, 0, 0.5)",  # Green highlight
+                pre_click_delay=1000,  # Wait 1 second before clicking
+                post_click_delay=1000   # Wait 1 second after clicking
+            )
+        else:
+            # If move label doesn't exist, try the notification mark
+            notification_selector = "div.contact__notification-mark"
+            await highlighter.highlight_and_click(
+                selector=notification_selector,
+                color="rgba(0, 255, 0, 0.5)",  # Green highlight
+                pre_click_delay=1000,  # Wait 1 second before clicking
+                post_click_delay=1000   # Wait 1 second after clicking
+            )
+    except Exception as e:
+        print(f"Error selecting next conversation: {str(e)}")
 
     # Get all message elements
     message_elements = await controller.page.locator("div.message").all()
     conversation = []
     for msg_element in message_elements:
+        # Highlight the message element
+        await highlighter.highlight_element(msg_element,
+            color="rgba(0, 255, 0, 0.3)",
+            duration=3000)
         # Determine if message is from self or other person
         is_self = await msg_element.evaluate("""
             element => element.classList.contains('message--out')
@@ -158,6 +179,11 @@ async def chat_to_latest(
     await controller.navigate("https://bumble.com/app")
     await controller.page.wait_for_load_state("domcontentloaded")
 
+    # Purely visual purposes
+    await highlighter.find_and_highlight_interactive_elements()
+    await asyncio.sleep(1)
+    await highlighter.remove_all_highlights()
+
     # Get latest conversation messages
     conversation = await get_latest_conversation(controller, highlighter)
 
@@ -166,3 +192,4 @@ async def chat_to_latest(
         await generate_and_send_response(controller, highlighter, conversation, testing)
     else:
         print("All conversations have been responded to.")
+    
