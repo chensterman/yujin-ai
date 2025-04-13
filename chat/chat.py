@@ -59,22 +59,22 @@ async def get_latest_conversation(controller: PageController, highlighter: Eleme
     # Select next chat that is your turn
     # Try both possible selectors for finding the next conversation
     try:
-        # First try the move label
-        next_move_selector = "div.contact__move-label"
-        move_label_exists = await controller.page.locator(next_move_selector).count() > 0
+        # First try the notification mark
+        notification_selector = "div.contact__notification-mark"
+        notification_exists = await controller.page.locator(notification_selector).count() > 0
         
-        if move_label_exists:
+        if notification_exists:
             await highlighter.highlight_and_click(
-                selector=next_move_selector,
+                selector=notification_selector,
                 color="rgba(0, 255, 0, 0.5)",  # Green highlight
                 pre_click_delay=1000,  # Wait 1 second before clicking
                 post_click_delay=1000   # Wait 1 second after clicking
             )
         else:
-            # If move label doesn't exist, try the notification mark
-            notification_selector = "div.contact__notification-mark"
+            # If notification mark doesn't exist, try the move label
+            move_label_selector = "div.contact__move-label"
             await highlighter.highlight_and_click(
-                selector=notification_selector,
+                selector=move_label_selector,
                 color="rgba(0, 255, 0, 0.5)",  # Green highlight
                 pre_click_delay=1000,  # Wait 1 second before clicking
                 post_click_delay=1000   # Wait 1 second after clicking
@@ -100,7 +100,7 @@ async def get_latest_conversation(controller: PageController, highlighter: Eleme
         # Skip empty messages
         if text:
             # Determine sender based on message direction
-            sender = "self" if is_self else "other"
+            sender = "self" if is_self else "match"
             # Add message to conversation
             conversation.append({
                 "sender": sender,
