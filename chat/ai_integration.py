@@ -49,7 +49,15 @@ class AIAssistant:
             Formatted messages for OpenAI API
         """
         formatted_messages = [
-            {"role": "system", "content": "You are a helpful assistant providing dating advice. Be friendly, engaging, and respectful. Keep responses concise and natural."}
+            {
+                "role": "system", 
+                "content": """
+                You are helping a friend response to messages on a dating app. 
+                Keep responses concise and natural, as if you were sending a text.
+                Be as flirtatious as possible.
+                Don't include any additional text.
+                """,
+            }
         ]
 
         for msg in messages:
@@ -67,7 +75,7 @@ class AIAssistant:
 
         return formatted_messages
 
-    async def generate_response(self, conversation: List[Dict[str, str]]) -> str:
+    async def generate_response(self, conversation: List[Dict[str, str]], testing: bool = False) -> str:
         """
         Generate a response based on the conversation.
 
@@ -77,6 +85,10 @@ class AIAssistant:
         Returns:
             Generated response text
         """
+        # For testing purposes
+        if testing:
+            return "This is a test response."
+
         try:
             formatted_messages = self.format_conversation(conversation)
 

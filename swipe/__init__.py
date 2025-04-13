@@ -1,0 +1,1 @@
+from swipe.swipe import swipe_on_latest

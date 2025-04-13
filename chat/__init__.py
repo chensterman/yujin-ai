@@ -1,0 +1,1 @@
+from chat.chat import chat_to_latest
