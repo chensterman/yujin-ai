@@ -1,0 +1,25 @@
+annotated-types==0.7.0
+anyio==4.9.0
+certifi==2025.1.31
+distro==1.9.0
+dlib @ file:///Users/runner/miniforge3/conda-bld/dlib-split_1726092599687/work
+dotenv==0.9.9
+greenlet==3.1.1
+h11==0.14.0
+httpcore==1.0.7
+httpx==0.28.1
+idna==3.10
+jiter==0.9.0
+numpy @ file:///Users/runner/miniforge3/conda-bld/numpy_1742254858819/work/dist/numpy-2.2.4-cp313-cp313-macosx_11_0_arm64.whl#sha256=e4cb761df371d0f5ace171e631618a4e9328a99153350202c26766d10ba764bc
+openai==1.66.5
+opencv-python==4.11.0.86
+playwright==1.50.0
+pydantic==2.10.6
+pydantic_core==2.27.2
+pyee==12.1.1
+python-dotenv==1.0.1
+setuptools==75.8.0
+sniffio==1.3.1
+tqdm==4.67.1
+typing_extensions==4.12.2
+wheel==0.45.1

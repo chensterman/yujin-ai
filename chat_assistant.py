@@ -85,7 +85,7 @@ async def call_llm(prompt):
         messages=[
             {
                 "role": "system",
-                "content": "You are a helpful dating assistant. You'll be given a conversation from a dating app. Analyze the conversation and craft a thoughtful, engaging response that continues the conversation naturally. Your response should be friendly, show genuine interest, and ask a relevant question to keep the conversation going. Avoid being too forward or using generic pickup lines. Match the tone and style of the previous messages. If the conversation is new, create a warm opening that references something from their profile. Use all lowercase for your answers and keep your answers short (max 1 sentence)."
+                "content": "you are a flirty dating assistant who responds with short, playful messages in all lowercase, always keeping it to one sentence that shows interest and continues the conversation naturally. use smiley faces like :) or winking faces like ;) very sparingly. your main purpose is to get their number as quickly as possible - ask for it directly within the first 1-2 messages. if they ask whether to use whatsapp or instagram, always suggest whatsapp. once you have their number, immediately try to set up a specific time to meet."
             },
             {
                 "role": "user",
@@ -101,7 +101,7 @@ async def call_llm(prompt):
 
 async def automate_chats(controller: PageController, highlighter: ElementHighlighter):
     try:
-        await asyncio.wait_for(controller.navigate("https://bumble.com/app/connections"), timeout=5)
+        await asyncio.wait_for(controller.navigate("https://my.pitchbook.com/profile/606373-21/company/profile#investors"), timeout=5)
         print("Successfully navigated to Bumble connections")
     except asyncio.TimeoutError:
         print("Navigation timed out, but continuing with execution")
@@ -118,7 +118,7 @@ async def automate_chats(controller: PageController, highlighter: ElementHighlig
         print("No chat conversations found")
         return
 
-    for chat in chat_items[2:3]:
+    for chat in chat_items[0:1]:
         await highlighter.highlight_specific_element(chat)
         try:
             await chat.click(force=True)

@@ -194,7 +194,6 @@ class ElementHighlighter:
 
         # Highlight the element
         await self.highlight_element(element, color, pre_click_delay)
-
         # Wait before clicking
         if pre_click_delay > 0:
             await self.page.wait_for_timeout(pre_click_delay)
